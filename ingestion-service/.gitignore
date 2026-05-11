@@ -31,7 +31,3 @@ build/
 
 ### VS Code ###
 .vscode/
-
-### Directories to ignore
-mysql/
-influxdb_data/

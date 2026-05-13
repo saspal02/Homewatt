@@ -13,12 +13,14 @@ import java.time.Instant;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.ThreadPoolExecutor;
 
 @Slf4j
 @Component
 public class ParallelDataSimulator implements CommandLineRunner {
 
     private final RestClient restClient;
+    private final ExecutorService executorService;
 
     @Value("${simulation.parallel-threads}")
     private int parallelThreads;
@@ -29,28 +31,31 @@ public class ParallelDataSimulator implements CommandLineRunner {
     @Value("${simulation.endpoint}")
     private String ingestionEndpoint;
 
-    private ExecutorService executorService;
-
     public ParallelDataSimulator(RestClient restClient) {
+
         this.restClient = restClient;
+        this.executorService = Executors.newCachedThreadPool();
     }
 
     @Override
     public void run(String... args) {
-        this.executorService = Executors.newFixedThreadPool(parallelThreads);
 
         log.info("""
                 
-                ParallelDataSimulator started
-                Threads: {}
-                Requests Per Interval: {}
-                Endpoint: {}
+                ParallelDataSimulator Started
+                
+                Threads               : {}
+                Requests Per Interval : {}
+                Endpoint              : {}
                 
                 """,
                 parallelThreads,
                 requestsPerInterval,
                 ingestionEndpoint
         );
+
+        ((ThreadPoolExecutor) executorService)
+                .setCorePoolSize(parallelThreads);
     }
 
     @Scheduled(fixedRateString = "${simulation.interval-ms}")
@@ -61,7 +66,8 @@ public class ParallelDataSimulator implements CommandLineRunner {
 
         for (int i = 0; i < parallelThreads; i++) {
 
-            int requestsForThread = batchSize + (i < remainder ? 1 : 0);
+            int requestsForThread =
+                    batchSize + (i < remainder ? 1 : 0);
 
             executorService.submit(() -> {
 
@@ -107,9 +113,7 @@ public class ParallelDataSimulator implements CommandLineRunner {
     @PreDestroy
     public void shutdown() {
 
-        if (executorService != null) {
-            executorService.shutdown();
-        }
+        executorService.shutdown();
 
         log.info("ParallelDataSimulator shut down.");
     }

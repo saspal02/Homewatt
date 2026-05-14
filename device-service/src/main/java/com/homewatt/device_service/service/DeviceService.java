@@ -6,6 +6,8 @@ import com.homewatt.device_service.exception.DeviceNotFoundException;
 import com.homewatt.device_service.repository.DeviceRepository;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 public class DeviceService {
 
@@ -57,6 +59,14 @@ public class DeviceService {
                         new DeviceNotFoundException("Device not found with id " + id));
 
         deviceRepository.delete(device);
+    }
+
+    public List<DeviceDto> getAllDevicesByUserId(Long userId) {
+        List<Device> devices = deviceRepository.findAllByUserId(userId);
+        return devices.stream()
+                .map(this::mapToDto)
+                .toList();
+
     }
 
     private DeviceDto mapToDto(Device device) {

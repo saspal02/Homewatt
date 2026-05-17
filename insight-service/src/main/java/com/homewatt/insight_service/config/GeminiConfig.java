@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Configuration;
 public class GeminiConfig {
 
     @Bean
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean(ChatClient.class)
     ChatClient chatClient(ChatClient.Builder builder) {
 
         return builder

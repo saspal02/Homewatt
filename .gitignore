@@ -35,3 +35,4 @@ build/
 ### Directories to ignore
 mysql/
 influxdb_data/
+grafana/

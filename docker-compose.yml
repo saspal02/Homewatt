@@ -14,14 +14,12 @@ services:
       - ./mysql/data:/var/lib/mysql
       - ./mysql/logs:/var/log/mysql
 
-
   kafka:
-    container_name: kafka
     image: apache/kafka:latest
+    container_name: kafka
     ports:
       - "9092:9092"
       - "9094:9094"
-
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_CLUSTER_ID: "energy-tracker-cluster-1"
@@ -57,10 +55,9 @@ services:
     volumes:
       - ./docker/kafka-data:/var/lib/kafka/data
 
-
   kafka-ui:
-    container_name: kafka-ui
     image: ghcr.io/kafbat/kafka-ui:latest
+    container_name: kafka-ui
     ports:
       - "8070:8080"
     depends_on:
@@ -71,23 +68,83 @@ services:
       DYNAMIC_CONFIG_ENABLED: "true"
     restart: unless-stopped
 
-
   influxdb:
     image: influxdb:2.8
     container_name: influxdb
     ports:
       - "8072:8086"
     environment:
-      - DOCKER_INFLUXDB_INIT_MODE=setup
-      - DOCKER_INFLUXDB_INIT_USERNAME=admin
-      - DOCKER_INFLUXDB_INIT_PASSWORD=admin123
-      - DOCKER_INFLUXDB_INIT_ORG=homewatt
-      - DOCKER_INFLUXDB_INIT_BUCKET=usage-bucket
-      - DOCKER_INFLUXDB_INIT_RETENTION=1w
-      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=my-token
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: admin123
+      DOCKER_INFLUXDB_INIT_ORG: homewatt
+      DOCKER_INFLUXDB_INIT_BUCKET: usage-bucket
+      DOCKER_INFLUXDB_INIT_RETENTION: 1w
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: my-token
     volumes:
       - ./influxdb_data:/var/lib/influxdb2
 
+  keycloak-db:
+    image: mysql:8.3.0
+    container_name: keycloak-mysql
+    volumes:
+      - ./mysql/keycloak-data:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: keycloak
+      MYSQL_USER: keycloak
+      MYSQL_PASSWORD: password
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.6.1
+    container_name: keycloak
+    command: ["start-dev", "--import-realm"]
+    environment:
+      - KC_DB=mysql
+      - KC_DB_URL=jdbc:mysql://keycloak-mysql:3306/keycloak
+      - KC_DB_USERNAME=keycloak
+      - KC_DB_PASSWORD=password
+
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
+    ports:
+      - "8091:8080"
+    volumes:
+      - ./docker/keycloak/realms/:/opt/keycloak/data/import/
+    depends_on:
+      - keycloak-db
+
+  prometheus:
+    image: prom/prometheus:v3.11.0
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=5d
+      - --web.enable-lifecycle
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:13.0.1
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: http://localhost:3000
+    volumes:
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
 
   mailpit:
     image: axllent/mailpit:latest
